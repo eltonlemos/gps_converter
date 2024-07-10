@@ -1,0 +1,16 @@
+# gpsconv:
+#   ros__parameters:
+#     reference_llh: [-1.0, -1.0, -1.0]
+#     pose_topic: "/gps_pose"
+#     gps_sub_topic: "/navsatfix"
+#     pose_frame: "base_link"
+#     reference_topic: "/gps_reference"
+
+gps_converter:
+  ros__parameters:
+    reference_llh: [-1.0, -1.0, -1.0]
+    pose_topic: "/gps_pose"
+    gps_sub_topic: "/navsatfix"
+    pose_frame: "base_link"
+    reference_topic: "/gps_reference"
+    heading_topic: "/mavros/global_position/compass_hdg"
