@@ -124,17 +124,26 @@ class MinimalPublisher(Node):
         p = np.dot(R,p)
         return p
     
-    def coordinate_transform(self,frame_origin_xyt,point_xyt):
-        x = point_xyt[0] - frame_origin_xyt[0]
-        y = point_xyt[1] - frame_origin_xyt[1]
+    # def coordinate_transform(self,frame_origin_xyt,point_xyt):
+    #     x = point_xyt[0] - frame_origin_xyt[0]
+    #     y = point_xyt[1] - frame_origin_xyt[1]
         
-        yaw_temp = frame_origin_xyt[2]
+    #     yaw_temp = frame_origin_xyt[2]
         
-        x_local = x*np.cos(-yaw_temp) - y*np.sin(-yaw_temp)
-        y_local = x*np.sin(-yaw_temp) + y*np.cos(-yaw_temp)
+    #     x_local = x*np.cos(-yaw_temp) - y*np.sin(-yaw_temp)
+    #     y_local = x*np.sin(-yaw_temp) + y*np.cos(-yaw_temp)
 
-        yaw_local = point_xyt[2] - frame_origin_xyt[2]
-        return [x_local,y_local,yaw_local]
+    #     yaw_local = point_xyt[2] - frame_origin_xyt[2]
+    #     return [x_local,y_local,yaw_local]
+
+    def coordinate_transform(self, global_local_origin, global_local_point):
+        x = global_local_point[0] - global_local_origin[0]
+        y = global_local_point[1] - global_local_origin[1]
+        theta = global_local_origin[2]
+        x_local = x*np.cos(theta) + y*np.sin(theta)
+        y_local = -x*np.sin(theta) + y*np.cos(theta)
+        yaw_local = global_local_point[2] - global_local_origin[2]
+        return [x_local, y_local, yaw_local]
 
 
     def gps_callback(self, msg:NavSatFix):
