@@ -9,9 +9,10 @@
 gps_converter:
   ros__parameters:
     reference_llh: [-1.0, -1.0, -1.0]
-    pose_topic: "/gps_to_local_posecov"
+    pose_topic: "/gps_to_odom"
     gps_sub_topic: "/navsatfix"
     pose_frame: "base_link"
     reference_topic: "/gps_reference"
     heading_topic: "/baseline"
+    twist_topic: "/twistwithcovariancestamped"
     constant_heading_offset: 30.0

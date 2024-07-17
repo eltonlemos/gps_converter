@@ -1,7 +1,8 @@
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import PoseStamped,Pose2D,PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseStamped,Pose2D,PoseWithCovarianceStamped,TwistWithCovarianceStamped
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Float32MultiArray,Float64
 import gpsconv.gps_utils as gps_utils
@@ -41,6 +42,7 @@ class MinimalPublisher(Node):
         self.declare_parameter('reference_llh',rclpy.Parameter.Type.DOUBLE_ARRAY)
         self.declare_parameter('pose_frame',rclpy.Parameter.Type.STRING)
         self.declare_parameter('heading_topic',rclpy.Parameter.Type.STRING)
+        self.declare_parameter('twist_topic',rclpy.Parameter.Type.STRING)
         self.declare_parameter('constant_heading_offset',0.0)
         
 
@@ -60,6 +62,7 @@ class MinimalPublisher(Node):
         self.pose_frame = self.get_parameter("pose_frame").value
         heading_topic = self.get_parameter("heading_topic").value
         self.constant_heading_offset = self.get_parameter("constant_heading_offset").value
+        twist_topic = self.get_parameter("twist_topic").value
 
         log_str = f"""
         Pose topic: {pose_topic}
@@ -67,11 +70,13 @@ class MinimalPublisher(Node):
         Reference topic: {reference_topic}
         Pose frame: {self.pose_frame}
         Heading topic: {heading_topic}
+        Constant heading offset: {self.constant_heading_offset}
+        Twist topic: {twist_topic}
         """
 
         self.get_logger().info(log_str)
 
-        self.publisher_ = self.create_publisher(PoseWithCovarianceStamped, pose_topic, 10)
+        self.publisher_ = self.create_publisher(Odometry, pose_topic, 10)
         self.reference_coords : list = None
         self.gps_subscriber = self.create_subscription(NavSatFix, gps_sub_topic, self.gps_callback, 10)
         self.heading_subscriber = self.create_subscription(Baseline, heading_topic , self.heading_callback, 10)
@@ -82,6 +87,8 @@ class MinimalPublisher(Node):
 
         self.frame_origin = None
         self.yaw_offset = None
+
+        self.twist = None
 
 
     def heading_callback(self, msg:Baseline):
@@ -183,16 +190,31 @@ class MinimalPublisher(Node):
         quat = euler_to_quaternion(0,0,yaw)
 
 
-        pose_cov = PoseWithCovarianceStamped()
-        pose_cov.header = msg.header
-        pose_cov.header.frame_id = self.pose_frame
-        pose_cov.pose.pose.position.x = x
-        pose_cov.pose.pose.position.y = y
-        pose_cov.pose.pose.position.z = z
-        pose_cov.pose.pose.orientation = Quaternion(x=quat[0],y=quat[1],z=quat[2],w=quat[3])
-        pose_cov.pose.covariance = position_covariance
+        # pose_cov = PoseWithCovarianceStamped()
+        # pose_cov.header = msg.header
+        # pose_cov.header.frame_id = self.pose_frame
+        # pose_cov.pose.pose.position.x = x
+        # pose_cov.pose.pose.position.y = y
+        # pose_cov.pose.pose.position.z = z
+        # pose_cov.pose.pose.orientation = Quaternion(x=quat[0],y=quat[1],z=quat[2],w=quat[3])
+        # pose_cov.pose.covariance = position_covariance
 
-        self.publisher_.publish(pose_cov)
+        # self.publisher_.publish(pose_cov)
+
+        odom_msg = Odometry()
+        odom_msg.header = msg.header
+        odom_msg.header.frame_id = self.pose_frame
+        odom_msg.pose.pose.position.x = x
+        odom_msg.pose.pose.position.y = y
+        odom_msg.pose.pose.position.z = z
+        odom_msg.pose.pose.orientation = Quaternion(x=quat[0],y=quat[1],z=quat[2],w=quat[3])
+        odom_msg.pose.covariance = position_covariance
+
+        if self.twist is not None:
+            odom_msg.twist.twist = self.twist
+
+        self.publisher_.publish(odom_msg)
+
 
         # print(f"X: {x}, Y: {y}, Z: {z}")
         # self.get_logger().info(f"X: {x}, Y: {y}, Z: {z}\n\n")
