@@ -1,10 +1,10 @@
 import rclpy
 from rclpy.node import Node
 
-from geometry_msgs.msg import PoseStamped,Pose2D,PoseWithCovarianceStamped,TwistWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import Float32MultiArray,Float64
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import TransformBroadcaster
 import gpsconv.gps_utils as gps_utils
 import math
 from swiftnav_ros2_driver.msg import Baseline
@@ -35,6 +35,7 @@ class MinimalPublisher(Node):
         #         ('pose_frame', 'map')
         #     ]
         # )
+        self.tf_broadcaster = TransformBroadcaster(self)
 
         self.declare_parameter('pose_topic',rclpy.Parameter.Type.STRING)
         self.declare_parameter('gps_sub_topic',rclpy.Parameter.Type.STRING)
@@ -89,6 +90,23 @@ class MinimalPublisher(Node):
         self.yaw_offset = None
 
         self.twist = None
+
+    def genTransform(self,x,y,z,quat):
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = "odom"
+        t.child_frame_id = "base_link"
+
+        t.transform.translation.x = x
+        t.transform.translation.y = y
+        t.transform.translation.z = z
+
+        t.transform.rotation.x = quat[0]
+        t.transform.rotation.y = quat[1]
+        t.transform.rotation.z = quat[2]
+        t.transform.rotation.w = quat[3]
+
+        self.tf_broadcaster.sendTransform(t)
 
 
     def heading_callback(self, msg:Baseline):
@@ -214,6 +232,8 @@ class MinimalPublisher(Node):
             odom_msg.twist.twist = self.twist
 
         self.publisher_.publish(odom_msg)
+
+        self.genTransform(x,y,z,quat)
 
 
         # print(f"X: {x}, Y: {y}, Z: {z}")
