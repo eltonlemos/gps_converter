@@ -1,6 +1,5 @@
 import rclpy
 from rclpy.node import Node
-
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import TransformStamped
@@ -45,7 +44,10 @@ class MinimalPublisher(Node):
         self.declare_parameter('heading_topic',rclpy.Parameter.Type.STRING)
         self.declare_parameter('twist_topic',rclpy.Parameter.Type.STRING)
         self.declare_parameter('constant_heading_offset',0.0)
+        self.declare_parameter("origin_heading",np.pi/2)
+            
         
+        self.first_odom = None
 
 
 
@@ -62,6 +64,7 @@ class MinimalPublisher(Node):
         reference_topic = self.get_parameter("reference_topic").value
         self.pose_frame = self.get_parameter("pose_frame").value
         heading_topic = self.get_parameter("heading_topic").value
+        self.origin_heading = self.get_parameter("origin_heading").value
         self.constant_heading_offset = self.get_parameter("constant_heading_offset").value
         twist_topic = self.get_parameter("twist_topic").value
 
@@ -78,7 +81,7 @@ class MinimalPublisher(Node):
         self.get_logger().info(log_str)
 
         self.publisher_ = self.create_publisher(Odometry, pose_topic, 10)
-        self.reference_coords : list = None
+        # self.reference_coords : list = None
         self.gps_subscriber = self.create_subscription(NavSatFix, gps_sub_topic, self.gps_callback, 10)
         self.heading_subscriber = self.create_subscription(Baseline, heading_topic , self.heading_callback, 10)
 
@@ -91,11 +94,11 @@ class MinimalPublisher(Node):
 
         self.twist = None
 
-    def genTransform(self,x,y,z,quat):
+    def genTransform(self,x,y,z,quat,frame_id="odom",child_frame_id="base_link"):
         t = TransformStamped()
         t.header.stamp = self.get_clock().now().to_msg()
-        t.header.frame_id = "odom"
-        t.child_frame_id = "base_link"
+        t.header.frame_id = frame_id
+        t.child_frame_id = child_frame_id
 
         t.transform.translation.x = x
         t.transform.translation.y = y
@@ -172,11 +175,12 @@ class MinimalPublisher(Node):
 
 
     def gps_callback(self, msg:NavSatFix):
-        if self.reference_coords is None:
-            self.reference_coords = [msg.latitude, msg.longitude, msg.altitude]
 
         if self.heading is None:
             return
+        if self.frame_origin is None:
+            self.frame_origin = [self.reference_coords[0],self.reference_coords[1],self.origin_heading]
+            self.get_logger().info(f"Initalizing frame origin to: {self.frame_origin}")
         
         lat = msg.latitude
         lon = msg.longitude
@@ -189,9 +193,9 @@ class MinimalPublisher(Node):
         y = p[0, 1]
         z = p[0, 2]
 
-        if self.frame_origin is None:
-            self.frame_origin = [x,y,self.heading]
-            self.get_logger().info(f"Initalizing frame origin to: {self.frame_origin}")
+        # if self.frame_origin is None:
+        #     self.frame_origin = [x,y,self.heading]
+        #     self.get_logger().info(f"Initalizing frame origin to: {self.frame_origin}")
 
         position_covariance = [0.0] * 36
         
@@ -234,6 +238,10 @@ class MinimalPublisher(Node):
         self.publisher_.publish(odom_msg)
 
         self.genTransform(x,y,z,quat)
+        if self.first_odom is None:
+            self.first_odom = [x,y,yaw]
+            self.genTransform(x,y,z,quat,"initial_frame","world_frame")
+            self.get_logger().info(f"First odom: {self.first_odom}")
 
 
         # print(f"X: {x}, Y: {y}, Z: {z}")
